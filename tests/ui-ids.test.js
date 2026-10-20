@@ -93,7 +93,21 @@ test('чипы крепости разбавления числовые', () => 
   assert.ok(values.length >= 3);
   for (const value of values) {
     const n = Calc.num(value, NaN);
-    assert.ok(Number.isFinite(n) && n > 0 && n <= 96, 'плохая крепость в чипе: ' + value);
+    // 96,6 — крепость ректификата, поэтому потолок чуть выше 96
+    assert.ok(Number.isFinite(n) && n > 0 && n <= 97, 'плохая крепость в чипе: ' + value);
+  }
+});
+
+test('переключатель аппарата содержит оба режима', () => {
+  const modes = unique(Array.from(html.matchAll(/data-mode="([^"]+)"/g), (m) => m[1]));
+  assert.deepEqual(modes.sort(), ['column', 'still']);
+  assert.ok(htmlIds.has('deviceMode'), 'нет контейнера #deviceMode');
+  for (const mode of modes) {
+    assert.ok(Calc.MODES[mode], 'режим не описан в calc.js: ' + mode);
+  }
+  // поля, которые переключаются вместе с аппаратом
+  for (const id of ['stopLabel', 'stopHint', 'diluteLabel', 'bodyRow', 'bodyFixed', 'modeHint']) {
+    assert.ok(htmlIds.has(id), 'нет элемента #' + id);
   }
 });
 

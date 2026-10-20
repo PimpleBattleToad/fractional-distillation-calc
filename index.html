@@ -74,10 +74,19 @@
               </label>
             </div>
 
+            <div class="field">
+              <span class="label">Аппарат</span>
+              <div class="segctl" id="deviceMode" role="group" aria-label="Тип аппарата">
+                <button type="button" class="seg-btn is-active" data-mode="still">Дистиллятор</button>
+                <button type="button" class="seg-btn" data-mode="column">Колонна 96,6 %</button>
+              </div>
+              <p class="hint" id="modeHint"></p>
+            </div>
+
             <label class="switch">
               <input type="checkbox" id="dilute" data-key="dilute" checked>
               <span class="switch-box"></span>
-              <span>Разбавить перед перегонкой до 20 % об.</span>
+              <span id="diluteLabel">Разбавить перед перегонкой до 20 % об.</span>
             </label>
             <p class="hint" id="diluteHint"></p>
           </section>
@@ -112,17 +121,17 @@
 
             <div class="slider-field">
               <div class="slider-head">
-                <span class="label">Тело — до крепости в струе</span>
+                <span class="label" id="stopLabel">Тело — до крепости в струе</span>
                 <span class="mini">
-                  <input type="number" id="stopNum" data-key="stopAbv" min="20" max="60" step="1" value="40" inputmode="decimal" autocomplete="off" aria-label="Крепость в струе, при которой отбор тела прекращают">
+                  <input type="number" id="stopNum" data-key="stopAbv" min="20" max="96" step="0.5" value="40" inputmode="decimal" autocomplete="off" aria-label="Крепость в струе, при которой отбор тела прекращают">
                   <span class="unit">% об.</span>
                 </span>
               </div>
-              <input type="range" id="stopRange" data-key="stopAbv" min="20" max="60" step="1" value="40" aria-label="Крепость в струе, при которой отбор тела прекращают">
-              <p class="hint">Ниже 40 % в струе в тело идут сивушные масла. Для колонны ориентир — 92–93 °C в кубе.</p>
+              <input type="range" id="stopRange" data-key="stopAbv" min="20" max="96" step="0.5" value="40" aria-label="Крепость в струе, при которой отбор тела прекращают">
+              <p class="hint" id="stopHint"></p>
             </div>
 
-            <div class="slider-field">
+            <div class="slider-field" id="bodyRow">
               <div class="slider-head">
                 <span class="label">Средняя крепость тела</span>
                 <span class="mini">
@@ -133,6 +142,8 @@
               <input type="range" id="bodyRange" data-key="bodyAbv" min="45" max="80" step="1" value="62" aria-label="Средняя крепость тела">
               <p class="hint">Нужна, чтобы пересчитать спирт в объём: тело идёт примерно от 85 % до 40 %, средняя — около 62 %.</p>
             </div>
+
+            <p class="hint fixed-note" id="bodyFixed" hidden>Крепость тела у колонны фиксирована — <b>96,6 % об.</b> Выше не подняться: этанол с водой образует неразделимый азеотроп.</p>
           </section>
 
           <details class="card card-collapse" id="washCard">
@@ -279,7 +290,7 @@
             <label class="field">
               <span class="label">Крепость</span>
               <span class="input-wrap">
-                <input id="dilAbv" data-key="dilAbv" type="number" min="1" max="96" step="0.5" value="65" inputmode="decimal" autocomplete="off">
+                <input id="dilAbv" data-key="dilAbv" type="number" min="1" max="97" step="0.5" value="65" inputmode="decimal" autocomplete="off">
                 <span class="unit">% об.</span>
               </span>
             </label>
@@ -297,6 +308,7 @@
             <button type="button" class="chip is-active" data-dilute="40">40 %</button>
             <button type="button" class="chip" data-dilute="45">45 %</button>
             <button type="button" class="chip" data-dilute="50">50 %</button>
+            <button type="button" class="chip" data-dilute="96.6" title="Ректификат после колонны">96,6 %</button>
           </div>
 
           <div class="result-inline">
@@ -389,7 +401,20 @@
               <tr><td>Виноградная</td><td>10–15 % АС</td><td>0,58</td></tr>
             </tbody>
           </table>
-          <p class="note">Для сахарной браги ходовое правило — 50 мл голов на 1 кг сахара, это примерно 8–10 % от АС.</p>
+          <p class="note">Для сахарной браги ходовое правило — 50 мл голов на 1 кг сахара, это примерно 8–10 % от АС. На колонне голов втрое меньше: 2–4 % АС для сахара и зерна, 4–6 % для фруктов и винограда.</p>
+        </section>
+
+        <section class="card prose">
+          <h2 class="h2">Если есть колонна</h2>
+          <ul>
+            <li><b>96,6 % об.</b> — практический предел: этанол с водой образует азеотроп (≈96 % об. при 78,15 °C), дальше обычной ректификацией не разделить.</li>
+            <li><b>Заряд</b> — 30–40 % об.: на такой крепости колонна держит режим, слабый заряд даёт больше потерь.</li>
+            <li><b>Головы</b> — 2–6 % от АС, капельно, после 15–20 минут работы «на себя».</li>
+            <li><b>Тело</b> — на 96,6 % об. почти без запаха; отбор прекращают при падении крепости в струе ниже 95–96 % (в кубе 95–98 °C).</li>
+            <li><b>Хвосты</b> после колонны тоже крепкие (около 96 %), но с сивухой — в следующий куб или на повторную ректификацию.</li>
+            <li><b>Флегмовое число</b> 3–4 — компромисс между чистотой и скоростью: 0,5–0,8 л/ч с литрового куба.</li>
+          </ul>
+          <p class="note">Оценки ориентировочные: реальный выход зависит от насадки, высоты царги, мощности нагрева и аккуратности отбора.</p>
         </section>
 
         <section class="card">

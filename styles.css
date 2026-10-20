@@ -416,6 +416,11 @@ a {
   border-top: 1px solid var(--line);
 }
 
+/* В режиме колонны ползунок крепости тела скрыт — там она фиксирована. */
+.slider-field[hidden] {
+  display: none;
+}
+
 .slider-head {
   display: flex;
   align-items: center;
@@ -519,6 +524,20 @@ input[type="range"]::-moz-range-thumb {
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* Фиксированная величина вместо скрытого ползунка (крепость тела у колонны). */
+.fixed-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(215, 154, 91, 0.55);
+  border-radius: 0 10px 10px 0;
+  background: rgba(215, 154, 91, 0.08);
+  color: #d8cec3;
+}
+
+.fixed-note b {
+  color: var(--text);
 }
 
 .note {

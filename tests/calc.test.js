@@ -171,5 +171,75 @@ test('справочник сырья содержит все четыре ти�
     assert.ok(type.headsMin <= type.heads && type.heads <= type.headsMax);
     assert.ok(type.headsMin > 0 && type.headsMax < 40);
     assert.ok(typeof type.labelGen === 'string' && type.labelGen.length > 0);
+    // у колонны голов в разы меньше
+    assert.ok(type.recHeadsMin <= type.recHeads && type.recHeads <= type.recHeadsMax);
+    assert.ok(type.recHeads < type.heads);
   }
+});
+
+/* ---------- ректификационная колонна ---------- */
+
+test('tailsShare: у колонны хвостов больше при низком стопе', () => {
+  close(Calc.tailsShare(95, 'column'), 0.02);
+  close(Calc.tailsShare(92, 'column'), 0.05);
+  close(Calc.tailsShare(88, 'column'), 0.09);
+  close(Calc.tailsShare(80, 'column'), 0.12); // обрезано сверху
+  close(Calc.tailsShare(60, 'column'), 0.12);
+  // дистиллятор не изменился
+  close(Calc.tailsShare(95, 'still'), 0.30);
+});
+
+test('headsDefault: колонне достаётся меньшая доля голов', () => {
+  assert.equal(Calc.headsDefault('still', 'sugar'), 8);
+  assert.equal(Calc.headsDefault('column', 'sugar'), 3);
+  assert.equal(Calc.headsDefault('column', 'grape'), 5);
+  assert.equal(Calc.headsDefault('column', 'нет-такого'), 3);
+});
+
+test('fractions в режиме колонны считает ректификат 96,6 %', () => {
+  const f = Calc.fractions({ mode: 'column', ssVol: 8, ssAbv: 30, dilute: false, headsPct: 3, stopAbv: 95 });
+
+  assert.equal(f.mode, 'column');
+  close(f.alcohol, 2.4);
+  close(f.headsFrac, 0.03);
+  close(f.tailsFrac, 0.02);
+  close(f.bodyFrac, 0.95);
+
+  // крепости фиксированы режимом
+  close(f.bodyAbv, 96.6);
+  close(f.headsStrength, 96.6);
+  close(f.tailsStrength, 96);
+
+  close(f.headsAlcohol, 0.072);
+  close(f.headsVolume, 0.072 / 0.966);
+  close(f.tailsAlcohol, 0.048);
+  close(f.tailsVolume, 0.05);
+  close(f.bodyAlcohol, 2.28);
+  close(f.bodyVolume, 2.28 / 0.966);
+  close(f.drink40, 5.7);
+
+  // сумма фракций сходится к объёму спирта
+  close(f.headsAlcohol + f.bodyAlcohol + f.tailsAlcohol, f.alcohol);
+});
+
+test('режим колонны игнорирует ручную крепость тела', () => {
+  const f = Calc.fractions({ mode: 'column', ssVol: 8, ssAbv: 30, bodyAbv: 62, stopAbv: 95, headsPct: 3 });
+  close(f.bodyAbv, 96.6);
+  // а в дистилляторе та же настройка работает
+  const g = Calc.fractions({ mode: 'still', ssVol: 8, ssAbv: 30, bodyAbv: 62, stopAbv: 95, headsPct: 3 });
+  close(g.bodyAbv, 62);
+});
+
+test('разбавление ректификата 96,6 % до 40 %', () => {
+  const d = Calc.dilute({ volume: 2.28, abv: 96.6, target: 40 });
+  assert.equal(d.possible, true);
+  close(d.water, (2.28 * 0.966) / 0.4 - 2.28);
+  close(d.total, (2.28 * 0.966) / 0.4);
+});
+
+test('ареометр принимает крепость ректификата', () => {
+  const r = Calc.correctReading({ reading: 96.6, tempC: 20 });
+  close(r.corrected, 96.6);
+  const warm = Calc.correctReading({ reading: 96.6, tempC: 25 });
+  assert.ok(warm.corrected < 96.6 && warm.corrected > 90);
 });

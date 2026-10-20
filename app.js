@@ -9,6 +9,7 @@
   const STORAGE_KEY = 'fractional-distillation-calc/v1';
 
   const DEFAULTS = {
+    mode: 'still',
     ssVol: 8,
     ssAbv: 30,
     dilute: true,
@@ -42,6 +43,8 @@
   const L = (v) => nf(v, 2);
   const L1 = (v) => nf(v, 1);
   const ML = (v) => nf(v, 0);
+  // 96,6 показываем как есть, 62 — без дробной части
+  const strengthTxt = (v) => nf(v, Number.isInteger(Number(v)) ? 0 : 1);
   const setTxt = (id, text) => {
     const el = $(id);
     if (el) el.textContent = text;
@@ -61,6 +64,7 @@
         }
       });
       if (!Calc.RAW_TYPES[state.raw]) state.raw = DEFAULTS.raw;
+      if (!Calc.MODES[state.mode]) state.mode = DEFAULTS.mode;
     } catch (err) {
       state = Object.assign({}, DEFAULTS);
     }
@@ -97,7 +101,35 @@
     updateRangeFill(key);
   }
 
+  /* У колонны свои границы отбора и своя крепость тела,
+     поэтому часть полей перестраивается при смене аппарата. */
+  function applyModeUi() {
+    const isColumn = state.mode === 'column';
+
+    $$('#deviceMode .seg-btn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.mode === state.mode);
+    });
+
+    const bounds = isColumn ? { min: 80, max: 96, step: 0.5 } : { min: 20, max: 60, step: 1 };
+    ['stopNum', 'stopRange'].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.min = String(bounds.min);
+      el.max = String(bounds.max);
+      el.step = String(bounds.step);
+    });
+    state.stopAbv = Calc.clamp(state.stopAbv, bounds.min, bounds.max);
+
+    const bodyRow = $('bodyRow');
+    if (bodyRow) bodyRow.hidden = isColumn;
+    const bodyFixed = $('bodyFixed');
+    if (bodyFixed) bodyFixed.hidden = !isColumn;
+
+    setTxt('stopLabel', isColumn ? 'Тело — до падения крепости' : 'Тело — до крепости в струе');
+  }
+
   function applyStateToInputs() {
+    applyModeUi();
     Object.keys(DEFAULTS).forEach((key) => syncInputs(key));
 
     $$('#rawChips .chip').forEach((chip) => {
@@ -154,6 +186,7 @@
     const s = state;
     const f = Calc.fractions(s);
     const type = Calc.RAW_TYPES[s.raw] || Calc.RAW_TYPES.sugar;
+    const isColumn = f.mode === 'column';
 
     setTxt('acValue', L(f.alcohol));
     setTxt('acHint', L1(s.ssVol) + ' л × ' + nf(s.ssAbv, 1) + ' % = ' + L(f.alcohol) + ' л АС');
@@ -170,24 +203,49 @@
     setTxt('headsSub', L(f.headsAlcohol) + ' л АС · ' + nf(s.headsPct, 0) + ' %');
 
     setTxt('bodyVol', L(f.bodyVolume));
-    setTxt('bodySub', L(f.bodyAlcohol) + ' л АС · ' + nf(s.bodyAbv, 0) + ' %');
+    setTxt('bodySub', L(f.bodyAlcohol) + ' л АС · ' + strengthTxt(f.bodyAbv) + ' %');
 
     setTxt('tailsVol', L(f.tailsAlcohol));
-    setTxt('tailsSub', '≈' + L(f.tailsVolume) + ' л при ' + f.tailsStrength + ' %');
+    setTxt('tailsSub', '≈' + L(f.tailsVolume) + ' л при ' + strengthTxt(f.tailsStrength) + ' %');
 
     setTxt('drink40', L(f.drink40) + ' л');
     setTxt('balance', '✓ ' + L(f.alcohol) + ' л АС распределено: головы + тело + хвосты');
     setTxt(
       'headsHint',
-      '≈ ' + ML(f.headsVolume * 1000) + ' мл при ' + f.headsStrength + ' % об. Для ' + type.labelGen +
-        ' браги норма — ' + type.headsMin + '–' + type.headsMax + ' % от АС.'
+      isColumn
+        ? '≈ ' + ML(f.headsVolume * 1000) + ' мл при ' + strengthTxt(f.headsStrength) + ' % об. Ректификация: для ' +
+          type.labelGen + ' браги головы ' + type.recHeadsMin + '–' + type.recHeadsMax + ' % от АС.'
+        : '≈ ' + ML(f.headsVolume * 1000) + ' мл при ' + strengthTxt(f.headsStrength) + ' % об. Для ' + type.labelGen +
+          ' браги норма — ' + type.headsMin + '–' + type.headsMax + ' % от АС.'
     );
+
+    setTxt(
+      'modeHint',
+      isColumn
+        ? 'Ректификация: в струе 96,6 % об., головы капельно, тело почти без запаха.'
+        : 'Дробная перегонка: в струе 60–70 % об., тело пахнет сырьём.'
+    );
+
+    setTxt(
+      'stopHint',
+      isColumn
+        ? 'Отбор прекращают, когда крепость в струе падает ниже ' + nf(f.stopAbv, 1) +
+          ' %: остаток уже хвосты. Контроль по кубу — 95–98 °C.'
+        : 'Ниже ' + nf(f.stopAbv, 1) + ' % в струе в тело идут сивушные масла. Для колонны ориентир — 92–93 °C в кубе.'
+    );
+
+    setTxt('diluteLabel', 'Разбавить перед перегонкой до ' + nf(s.diluteTo, 0) + ' % об.');
 
     // подсказка про разбавление
     if (!s.dilute) {
       setTxt('diluteHint', 'Без разбавления: в куб идёт ' + L1(s.ssVol) + ' л сырца ' + nf(s.ssAbv, 1) + ' %.');
     } else if (s.ssAbv <= s.diluteTo) {
-      setTxt('diluteHint', 'Крепость уже не выше ' + nf(s.diluteTo, 0) + ' % — разбавлять не нужно.');
+      setTxt(
+        'diluteHint',
+        isColumn
+          ? 'Сырец уже ' + nf(s.ssAbv, 1) + ' % — для колонны это рабочая крепость заряда (30–40 %), разбавлять не нужно.'
+          : 'Крепость уже не выше ' + nf(s.diluteTo, 0) + ' % — разбавлять не нужно.'
+      );
     } else {
       setTxt(
         'diluteHint',
@@ -201,6 +259,7 @@
 
   function renderSteps(f) {
     const s = state;
+    const isColumn = f.mode === 'column';
     const steps = [];
 
     if (s.dilute && f.water > 0.005) {
@@ -210,10 +269,18 @@
     } else {
       steps.push('Залить сырец как есть: ' + L1(s.ssVol) + ' л ' + nf(s.ssAbv, 1) + ' %.');
     }
-    steps.push('Отобрать головы — ' + ML(f.headsVolume * 1000) + ' мл, капельно, это ' + nf(s.headsPct, 1) + ' % от АС.');
-    steps.push('Сменить ёмкость: тело — до ' + nf(s.stopAbv, 0) + ' % в струе, ориентир ' + L(f.bodyVolume) + ' л при ' + nf(s.bodyAbv, 0) + ' %.');
-    steps.push('Хвосты (' + L(f.tailsAlcohol) + ' л АС) — отдельно, в следующий куб.');
-    steps.push('Тело разбавить до питьевой крепости: выйдет ' + L(f.drink40) + ' л при 40 %.');
+
+    if (isColumn) {
+      steps.push('Дать колонне выйти на режим — 15–20 минут на себя, затем отбор голов капельно: ' + ML(f.headsVolume * 1000) + ' мл (' + nf(s.headsPct, 1) + ' % от АС).');
+      steps.push('Сменить ёмкость: тело на ' + strengthTxt(f.bodyAbv) + ' % до падения крепости в струе ниже ' + nf(f.stopAbv, 1) + ' % — ориентир ' + L(f.bodyVolume) + ' л.');
+      steps.push('Хвосты (' + L(f.tailsAlcohol) + ' л АС ≈ ' + L(f.tailsVolume) + ' л при ' + strengthTxt(f.tailsStrength) + ' %) — отдельно, в следующий куб или на повторную ректификацию.');
+      steps.push('Разбавить ректификат до питьевой крепости: выйдет ' + L(f.drink40) + ' л при 40 %.');
+    } else {
+      steps.push('Отобрать головы — ' + ML(f.headsVolume * 1000) + ' мл, капельно, это ' + nf(s.headsPct, 1) + ' % от АС.');
+      steps.push('Сменить ёмкость: тело — до ' + nf(s.stopAbv, 0) + ' % в струе, ориентир ' + L(f.bodyVolume) + ' л при ' + strengthTxt(f.bodyAbv) + ' %.');
+      steps.push('Хвосты (' + L(f.tailsAlcohol) + ' л АС) — отдельно, в следующий куб.');
+      steps.push('Тело разбавить до питьевой крепости: выйдет ' + L(f.drink40) + ' л при 40 %.');
+    }
 
     const list = $('stepsList');
     list.innerHTML = '';
@@ -304,9 +371,8 @@
     $$('#rawChips .chip').forEach((chip) => {
       chip.addEventListener('click', () => {
         state.raw = chip.dataset.raw;
-        const type = Calc.RAW_TYPES[state.raw];
-        if (state.headsAuto && type) {
-          state.headsPct = type.heads;
+        if (state.headsAuto) {
+          state.headsPct = Calc.headsDefault(state.mode, state.raw);
           syncInputs('headsPct');
         }
         $$('#rawChips .chip').forEach((c) => c.classList.toggle('is-active', c === chip));
@@ -323,6 +389,28 @@
         render();
         save();
       });
+    });
+  }
+
+  function setMode(mode) {
+    if (!Calc.MODES[mode] || mode === state.mode) return;
+    const isColumn = mode === 'column';
+
+    state.mode = mode;
+    // подставляем рабочие значения под аппарат; ручные головы не трогаем
+    state.stopAbv = isColumn ? 95 : 40;
+    state.diluteTo = isColumn ? 35 : 20;
+    if (state.headsAuto) state.headsPct = Calc.headsDefault(mode, state.raw);
+
+    applyStateToInputs();
+    render();
+    save();
+    toasts(isColumn ? 'Колонна: тело 96,6 % об.' : 'Дистиллятор: тело 60–70 % об.');
+  }
+
+  function wireMode() {
+    $$('#deviceMode .seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
     });
   }
 
@@ -405,15 +493,16 @@
   function buildReport() {
     const s = state;
     const f = Calc.fractions(s);
+    const isColumn = f.mode === 'column';
     const lines = [
-      'Дробная перегонка — расчёт',
+      (isColumn ? 'Ректификация — расчёт' : 'Дробная перегонка — расчёт'),
       'Сырец: ' + L1(s.ssVol) + ' л, ' + nf(s.ssAbv, 1) + ' % об. → ' + L(f.alcohol) + ' л АС',
       s.dilute && f.water > 0.005
         ? 'Разбавление до ' + nf(s.diluteTo, 0) + ' %: +' + L(f.water) + ' л воды, заряд ' + L(f.chargeVolume) + ' л'
         : 'Без разбавления',
-      'Головы: ' + ML(f.headsVolume * 1000) + ' мл (' + nf(s.headsPct, 1) + ' % от АС, ≈' + f.headsStrength + ' % об.)',
-      'Тело: ' + L(f.bodyVolume) + ' л при ' + nf(s.bodyAbv, 0) + ' % об. (' + L(f.bodyAlcohol) + ' л АС), отбор до ' + nf(s.stopAbv, 0) + ' % в струе',
-      'Хвосты: ' + L(f.tailsAlcohol) + ' л АС (≈' + L(f.tailsVolume) + ' л при ' + f.tailsStrength + ' %)',
+      'Головы: ' + ML(f.headsVolume * 1000) + ' мл (' + nf(s.headsPct, 1) + ' % от АС, ≈' + strengthTxt(f.headsStrength) + ' % об.)',
+      'Тело: ' + L(f.bodyVolume) + ' л при ' + strengthTxt(f.bodyAbv) + ' % об. (' + L(f.bodyAlcohol) + ' л АС), отбор до ' + nf(f.stopAbv, 1) + ' % в струе',
+      'Хвосты: ' + L(f.tailsAlcohol) + ' л АС (≈' + L(f.tailsVolume) + ' л при ' + strengthTxt(f.tailsStrength) + ' %)',
       'Напиток 40 %: ' + L(f.drink40) + ' л',
       '',
       'Калькулятор дробной перегонки'
@@ -475,9 +564,26 @@
   }
 
   load();
+
+  // Ссылку можно дать сразу с нужным аппаратом: index.html?mode=column
+  try {
+    const urlMode = new URLSearchParams(window.location.search).get('mode');
+    if (urlMode && Calc.MODES[urlMode]) {
+      state.mode = urlMode;
+      if (urlMode === 'column') {
+        state.stopAbv = 95;
+        state.diluteTo = 35;
+      }
+      state.headsPct = Calc.headsDefault(state.mode, state.raw);
+    }
+  } catch (err) {
+    /* старый браузер без URLSearchParams — просто открываем как есть */
+  }
+
   applyStateToInputs();
   wireInputs();
   wireChips();
+  wireMode();
   wireWashMode();
   wireTabs();
   wireCopy();

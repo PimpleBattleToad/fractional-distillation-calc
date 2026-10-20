@@ -132,6 +132,7 @@ function createDom() {
   const rawChips = uniq(/data-raw="([^"]+)"/g).map((r) => chip({ raw: r }, 'chip'));
   const dilChips = uniq(/data-dilute="([^"]+)"/g).map((d) => chip({ dilute: d }, 'chip'));
   const washChips = uniq(/data-washmode="([^"]+)"/g).map((w) => chip({ washmode: w }, 'seg-btn'));
+  const modeChips = uniq(/data-mode="([^"]+)"/g).map((m) => chip({ mode: m }, 'seg-btn'));
   const tabChips = uniq(/data-tab="([^"]+)"/g).map((t) => chip({ tab: t }, 'tab'));
   const panelChips = uniq(/data-tab="([^"]+)"/g).map((t) => {
     const el = chip({ tab: t }, 'panel');
@@ -154,6 +155,7 @@ function createDom() {
       if (selector === '#rawChips .chip') return rawChips;
       if (selector === '#dilChips .chip') return dilChips;
       if (selector === '#washMode .seg-btn') return washChips;
+      if (selector === '#deviceMode .seg-btn') return modeChips;
       if (selector === '.tab') return tabChips;
       if (selector === '.panel') return panelChips;
       return [];
@@ -180,7 +182,7 @@ function createDom() {
   window.window = window;
   window.document = document;
 
-  return { window, document, writes, steps, listeners, storage, fieldElements, chips, byId };
+  return { window, document, writes, steps, listeners, storage, fieldElements, chips, byId, modeChips };
 }
 
 function boot() {
@@ -359,4 +361,35 @@ test('если разбавлять не нужно, липкая строка �
 
   assert.equal(text(dom, 'sbVal'), 'Разбавлять не нужно');
   assert.match(text(dom, 'sbLab'), /30,0 % уже не выше 40 %/);
+});
+
+test('режим колонны считает ректификат 96,6 %', () => {
+  const dom = boot();
+  const columnBtn = dom.modeChips.find((c) => c.dataset.mode === 'column');
+  dom.listeners.get(columnBtn).get('click').forEach((fn) => fn());
+
+  // 8 л × 30 % = 2,4 л АС: головы 3 %, хвосты 2 % при стопе 95 %
+  assert.equal(text(dom, 'acValue'), '2,40');
+  assert.equal(text(dom, 'headsVol'), '75');
+  assert.equal(text(dom, 'bodyVol'), '2,36');
+  assert.equal(text(dom, 'tailsVol'), '0,05');
+  assert.equal(text(dom, 'drink40'), '5,70 л');
+  assert.equal(text(dom, 'bodySub'), '2,28 л АС · 96,6 %');
+  assert.match(text(dom, 'modeHint'), /Ректификация/);
+  assert.match(text(dom, 'headsHint'), /Ректификация: для сахарной браги головы 2–4 %/);
+  assert.match(text(dom, 'stopHint'), /крепость в струе падает ниже 95,0 %/);
+
+  // ползунок крепости тела скрыт, вместо него статичная строка
+  assert.equal(dom.document.getElementById('bodyRow').hidden, true);
+  assert.equal(dom.document.getElementById('bodyFixed').hidden, false);
+  // границы отбора переставлены под колонну
+  assert.equal(dom.document.getElementById('stopRange').min, '80');
+  assert.equal(dom.document.getElementById('stopRange').max, '96');
+
+  // и обратно: дистиллятор возвращает прежние значения
+  const stillBtn = dom.modeChips.find((c) => c.dataset.mode === 'still');
+  dom.listeners.get(stillBtn).get('click').forEach((fn) => fn());
+  assert.equal(text(dom, 'bodyVol'), '2,98');
+  assert.equal(dom.document.getElementById('bodyRow').hidden, false);
+  assert.equal(dom.document.getElementById('stopRange').min, '20');
 });
