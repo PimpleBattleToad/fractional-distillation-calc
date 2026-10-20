@@ -8,6 +8,10 @@
 Работает и на компьютере, и на телефоне, устанавливается как приложение (PWA) и
 открывается по Wi-Fi прямо с домашнего компьютера.
 
+**Открыть в интернете:** <https://pimplebattletoad.github.io/fractional-distillation-calc/>
+(этот же адрес открывайте на телефоне — по https приложение ставится на главный экран
+и работает офлайн).
+
 ## Как открыть на компьютере
 
 Двойной клик по `index.html` — работает прямо с диска (`file://`).
@@ -67,14 +71,30 @@ node serve-lan.js      # http://localhost:8080
 
 ## Выложить в интернет
 
+Сайт уже опубликован на GitHub Pages из этого репозитория:
+
+<https://github.com/PimpleBattleToad/fractional-distillation-calc>
+
+Обновление после правок — обычный коммит:
+
+```powershell
+git add -A
+git commit -m "правки"
+git push
+```
+
+GitHub пересобирает страницу за минуту-две. Настройка: Settings → Pages → Source:
+«Deploy from a branch», ветка `main`, папка `/ (root)`.
+
+Если нужен другой хостинг (Netlify, Cloudflare Pages), соберите архив — в нём только
+файлы сайта и ничего лишнего:
+
 ```powershell
 tools\make-zip.cmd
 ```
 
-Соберётся `fractional-distillation-site.zip` с `index.html`, `styles.css`, `calc.js`,
-`app.js`, `pwa.js`, `manifest.json`, `sw.js` и папкой `icons/` — в корне архива, готовый
-к загрузке на GitHub Pages, Netlify Drop или Cloudflare Pages (нужен `https://`, чтобы
-заработал офлайн-режим).
+Получится `fractional-distillation-site.zip` с `index.html`, `styles.css`, `calc.js`,
+`app.js`, `pwa.js`, `manifest.json`, `sw.js` и папкой `icons/` — в корне архива.
 
 ## Что внутри
 
