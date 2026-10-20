@@ -1,0 +1,8 @@
+# build artifact: built by tools/make-zip.ps1
+fractional-distillation-site.zip
+
+# local junk
+node_modules/
+Thumbs.db
+.DS_Store
+*.log

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <!-- maximum-scale+user-scalable: внутри WebView/Telegram страница не должна «залипать» увеличенной.
+       minimum-scale и viewport-fit намеренно не заданы: первый запрещает ужать широкую страницу,
+       второй уводит содержимое под вырез экрана. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#100e0c">
+  <meta name="color-scheme" content="dark">
+  <title>Калькулятор дробной перегонки — головы, тело, хвосты</title>
+  <meta name="description" content="Калькулятор дробной перегонки: расчёт голов, тела и хвостов по абсолютному спирту, разбавление до питьевой крепости и поправка ареометра на температуру.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Перегонка">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.6c3.3 4.3 5.5 7.1 5.5 9.7a5.5 5.5 0 1 1-11 0c0-2.6 2.2-5.4 5.5-9.7Z"/>
+          <path d="M9.3 12.7c.3 1.5 1.4 2.5 2.9 2.5"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <h1>Калькулятор дробной перегонки</h1>
+        <p>Головы · тело · хвосты — расчёт по абсолютному спирту</p>
+      </div>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Разделы калькулятора">
+      <button type="button" class="tab is-active" id="tabbtn-distill" role="tab" aria-selected="true" aria-controls="panel-distill" data-tab="distill">Перегонка</button>
+      <button type="button" class="tab" id="tabbtn-dilute" role="tab" aria-selected="false" aria-controls="panel-dilute" data-tab="dilute">Разбавление</button>
+      <button type="button" class="tab" id="tabbtn-guide" role="tab" aria-selected="false" aria-controls="panel-guide" data-tab="guide">Методика</button>
+    </nav>
+  </header>
+
+  <main class="main">
+
+    <!-- ================= ПЕРЕГОНКА ================= -->
+    <section class="panel is-active" id="panel-distill" role="tabpanel" aria-labelledby="tabbtn-distill">
+      <div class="layout">
+
+        <div class="col-input">
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Спирт-сырец</h2>
+              <span class="pill">шаг 1</span>
+            </div>
+
+            <div class="grid-2">
+              <label class="field">
+                <span class="label">Объём</span>
+                <span class="input-wrap">
+                  <input id="ssVol" data-key="ssVol" type="number" min="0" max="200" step="0.1" value="8" inputmode="decimal" autocomplete="off">
+                  <span class="unit">л</span>
+                </span>
+              </label>
+              <label class="field">
+                <span class="label">Крепость</span>
+                <span class="input-wrap">
+                  <input id="ssAbv" data-key="ssAbv" type="number" min="0" max="96" step="0.5" value="30" inputmode="decimal" autocomplete="off">
+                  <span class="unit">% об.</span>
+                </span>
+              </label>
+            </div>
+
+            <label class="switch">
+              <input type="checkbox" id="dilute" data-key="dilute" checked>
+              <span class="switch-box"></span>
+              <span>Разбавить перед перегонкой до 20 % об.</span>
+            </label>
+            <p class="hint" id="diluteHint"></p>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Фракции</h2>
+              <span class="pill">шаг 2</span>
+            </div>
+
+            <div class="field">
+              <span class="label">Сырьё</span>
+              <div class="chips" id="rawChips">
+                <button type="button" class="chip is-active" data-raw="sugar">Сахарная</button>
+                <button type="button" class="chip" data-raw="grain">Зерновая</button>
+                <button type="button" class="chip" data-raw="fruit">Фруктовая</button>
+                <button type="button" class="chip" data-raw="grape">Виноградная</button>
+              </div>
+            </div>
+
+            <div class="slider-field">
+              <div class="slider-head">
+                <span class="label">Головы</span>
+                <span class="mini">
+                  <input type="number" id="headsNum" data-key="headsPct" min="0" max="25" step="0.5" value="8" inputmode="decimal" autocomplete="off" aria-label="Доля голов, процентов от абсолютного спирта">
+                  <span class="unit">% от АС</span>
+                </span>
+              </div>
+              <input type="range" id="headsRange" data-key="headsPct" min="0" max="25" step="0.5" value="8" aria-label="Доля голов, процентов от абсолютного спирта">
+              <p class="hint" id="headsHint"></p>
+            </div>
+
+            <div class="slider-field">
+              <div class="slider-head">
+                <span class="label">Тело — до крепости в струе</span>
+                <span class="mini">
+                  <input type="number" id="stopNum" data-key="stopAbv" min="20" max="60" step="1" value="40" inputmode="decimal" autocomplete="off" aria-label="Крепость в струе, при которой отбор тела прекращают">
+                  <span class="unit">% об.</span>
+                </span>
+              </div>
+              <input type="range" id="stopRange" data-key="stopAbv" min="20" max="60" step="1" value="40" aria-label="Крепость в струе, при которой отбор тела прекращают">
+              <p class="hint">Ниже 40 % в струе в тело идут сивушные масла. Для колонны ориентир — 92–93 °C в кубе.</p>
+            </div>
+
+            <div class="slider-field">
+              <div class="slider-head">
+                <span class="label">Средняя крепость тела</span>
+                <span class="mini">
+                  <input type="number" id="bodyNum" data-key="bodyAbv" min="45" max="80" step="1" value="62" inputmode="decimal" autocomplete="off" aria-label="Средняя крепость тела">
+                  <span class="unit">% об.</span>
+                </span>
+              </div>
+              <input type="range" id="bodyRange" data-key="bodyAbv" min="45" max="80" step="1" value="62" aria-label="Средняя крепость тела">
+              <p class="hint">Нужна, чтобы пересчитать спирт в объём: тело идёт примерно от 85 % до 40 %, средняя — около 62 %.</p>
+            </div>
+          </section>
+
+          <details class="card card-collapse" id="washCard">
+            <summary>
+              <span class="summary-title">Сырец из браги</span>
+              <span class="summary-sub">посчитать заряд для первой перегонки</span>
+            </summary>
+            <div class="details-body">
+              <div class="segctl" id="washMode">
+                <button type="button" class="seg-btn is-active" data-washmode="vol">По объёму браги</button>
+                <button type="button" class="seg-btn" data-washmode="sugar">По сахару</button>
+              </div>
+
+              <div class="wash-pane" id="paneVol">
+                <div class="grid-2">
+                  <label class="field">
+                    <span class="label">Объём браги</span>
+                    <span class="input-wrap">
+                      <input id="washVol" data-key="washVol" type="number" min="0" max="500" step="0.5" value="20" inputmode="decimal" autocomplete="off">
+                      <span class="unit">л</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="label">Крепость браги</span>
+                    <span class="input-wrap">
+                      <input id="washAbv" data-key="washAbv" type="number" min="0" max="20" step="0.5" value="12" inputmode="decimal" autocomplete="off">
+                      <span class="unit">% об.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="wash-pane" id="paneSugar" hidden>
+                <div class="grid-2">
+                  <label class="field">
+                    <span class="label">Сахар</span>
+                    <span class="input-wrap">
+                      <input id="sugarKg" data-key="sugarKg" type="number" min="0" max="100" step="0.5" value="5" inputmode="decimal" autocomplete="off">
+                      <span class="unit">кг</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="label">Гидромодуль</span>
+                    <span class="input-wrap">
+                      <input id="hydro" data-key="hydro" type="number" min="2" max="8" step="0.5" value="5" inputmode="decimal" autocomplete="off">
+                      <span class="unit">л/кг</span>
+                    </span>
+                  </label>
+                </div>
+                <p class="hint" id="sugarHint"></p>
+              </div>
+
+              <div class="wash-summary">
+                <div class="stat">
+                  <span>Абсолютный спирт</span>
+                  <b id="washAc">2,40 л</b>
+                </div>
+                <div class="stat">
+                  <span>Сырца при 30 %</span>
+                  <b id="washSs">8,0 л</b>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-primary" id="applyWash">Подставить в расчёт</button>
+            </div>
+          </details>
+
+          <p class="note">Расчёты ориентировочные: выход зависит от браги, оборудования и скорости отбора. Крепость проверяйте ареометром.</p>
+        </div>
+
+        <aside class="col-result">
+
+          <section class="card result-card">
+            <div class="result-head">
+              <span class="label">Абсолютный спирт в сырце</span>
+              <div class="hero"><span id="acValue">2,40</span><span class="hero-unit">л АС</span></div>
+              <p class="hint" id="acHint"></p>
+            </div>
+
+            <div class="bar" aria-hidden="true">
+              <div class="seg seg-heads" id="segHeads" style="width:8%"><span>головы</span></div>
+              <div class="seg seg-body" id="segBody" style="width:77%"><span>тело</span></div>
+              <div class="seg seg-tails" id="segTails" style="width:15%"><span>хвосты</span></div>
+            </div>
+
+            <div class="fracs">
+              <article class="frac">
+                <div class="frac-head"><span class="dot dot-heads"></span>Головы</div>
+                <div class="frac-value"><span id="headsVol">218</span><span class="frac-u">мл</span></div>
+                <p class="frac-sub" id="headsSub"></p>
+              </article>
+              <article class="frac">
+                <div class="frac-head"><span class="dot dot-body"></span>Тело</div>
+                <div class="frac-value"><span id="bodyVol">2,98</span><span class="frac-u">л</span></div>
+                <p class="frac-sub" id="bodySub"></p>
+              </article>
+              <article class="frac">
+                <div class="frac-head"><span class="dot dot-tails"></span>Хвосты</div>
+                <div class="frac-value"><span id="tailsVol">0,36</span><span class="frac-u">л АС</span></div>
+                <p class="frac-sub" id="tailsSub"></p>
+              </article>
+            </div>
+
+            <p class="balance" id="balance" aria-live="polite"></p>
+
+            <div class="result-foot">
+              <div>
+                <span class="label">Напиток 40 % из тела</span>
+                <div class="mini-hero" id="drink40">4,62 л</div>
+              </div>
+              <button type="button" class="btn btn-ghost" id="copyBtn">Скопировать расчёт</button>
+            </div>
+          </section>
+
+          <section class="card plan-card">
+            <div class="card-head">
+              <h2>План перегонки</h2>
+            </div>
+            <ol class="steps" id="stepsList"></ol>
+          </section>
+
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= РАЗБАВЛЕНИЕ ================= -->
+    <section class="panel" id="panel-dilute" role="tabpanel" aria-labelledby="tabbtn-dilute" hidden>
+      <div class="layout layout-2">
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Разбавление спирта</h2>
+            <span class="pill">вода</span>
+          </div>
+
+          <div class="grid-3">
+            <label class="field">
+              <span class="label">Объём</span>
+              <span class="input-wrap">
+                <input id="dilVol" data-key="dilVol" type="number" min="0" max="500" step="0.1" value="5" inputmode="decimal" autocomplete="off">
+                <span class="unit">л</span>
+              </span>
+            </label>
+            <label class="field">
+              <span class="label">Крепость</span>
+              <span class="input-wrap">
+                <input id="dilAbv" data-key="dilAbv" type="number" min="1" max="96" step="0.5" value="65" inputmode="decimal" autocomplete="off">
+                <span class="unit">% об.</span>
+              </span>
+            </label>
+            <label class="field">
+              <span class="label">Нужная крепость</span>
+              <span class="input-wrap">
+                <input id="dilTo" data-key="dilTo" type="number" min="1" max="96" step="1" value="40" inputmode="decimal" autocomplete="off">
+                <span class="unit">% об.</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="chips" id="dilChips">
+            <button type="button" class="chip" data-dilute="38">38 %</button>
+            <button type="button" class="chip is-active" data-dilute="40">40 %</button>
+            <button type="button" class="chip" data-dilute="45">45 %</button>
+            <button type="button" class="chip" data-dilute="50">50 %</button>
+          </div>
+
+          <div class="result-inline">
+            <div class="big"><span id="dilWater">3,13</span><span class="big-unit">л воды</span></div>
+            <div class="pairs">
+              <div><span>Всего получится</span><b id="dilTotal">8,13 л</b></div>
+              <div><span>Воды на 1 л спирта</span><b id="dilPerLiter">0,63 л</b></div>
+            </div>
+          </div>
+
+          <p class="note" id="dilNote">Смешивайте постепенно и перемешивайте. Из-за контракции фактическая крепость может выйти на 0,3–0,5 % выше — проверяйте ареометром при 20 °C.</p>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Поправка на температуру</h2>
+            <span class="pill">ареометр</span>
+          </div>
+
+          <p class="hint">Ареометры отградуированы на 20 °C. В тёплом растворе они показывают завышенную крепость, в холодном — заниженную.</p>
+
+          <div class="grid-2">
+            <label class="field">
+              <span class="label">Показания</span>
+              <span class="input-wrap">
+                <input id="tempReading" data-key="tempReading" type="number" min="0" max="96" step="0.5" value="40" inputmode="decimal" autocomplete="off">
+                <span class="unit">% об.</span>
+              </span>
+            </label>
+            <label class="field">
+              <span class="label">Температура</span>
+              <span class="input-wrap">
+                <input id="tempC" data-key="tempC" type="number" min="0" max="40" step="1" value="25" inputmode="decimal" autocomplete="off">
+                <span class="unit">°C</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="result-inline">
+            <div class="big"><span id="tempOut">38,2</span><span class="big-unit">% при 20 °C</span></div>
+            <div class="pairs">
+              <div><span>Поправка</span><b id="tempDelta">−1,8 %</b></div>
+              <div><span>Коэффициент</span><b id="tempK">0,35 %/°C</b></div>
+            </div>
+          </div>
+
+          <p class="note">Оценка: у каждого ареометра своя таблица поправок — сверяйтесь с паспортом прибора.</p>
+        </section>
+
+      </div>
+    </section>
+
+    <!-- ================= МЕТОДИКА ================= -->
+    <section class="panel" id="panel-guide" role="tabpanel" aria-labelledby="tabbtn-guide" hidden>
+      <div class="guide">
+
+        <section class="card prose">
+          <h2 class="h2">Порядок работы</h2>
+          <ol>
+            <li>Перегоните брагу без дробления — получите спирт-сырец 25–35 % об.</li>
+            <li>Разбавьте сырец водой до 20 % об.: так безопаснее, и фракции делятся чётче.</li>
+            <li>Заполните куб не более чем на 2/3, проверьте герметичность, включите нагрев.</li>
+            <li><b>Головы.</b> После первых капель убавьте нагрев до 1–2 капель в секунду и отберите расчётный объём.</li>
+            <li><b>Тело.</b> Смените приёмную ёмкость. Отбирайте до 40–45 % об. в струе (пот-стилл) или до 92–93 °C в кубе (колонна).</li>
+            <li><b>Хвосты.</b> Соберите остаток до 0 % в струе и добавьте в следующий куб.</li>
+            <li>Тело при желании разбавьте до питьевой крепости и дайте отдохнуть 3–7 дней.</li>
+          </ol>
+        </section>
+
+        <section class="card prose">
+          <h2 class="h2">Что считается</h2>
+          <div class="formula"><code>АС = V × C / 100</code><span>абсолютный спирт, л</span></div>
+          <div class="formula"><code>Vводы = V × (C / Cцель − 1)</code><span>разбавление</span></div>
+          <div class="formula"><code>Vголов = АС × (8…15 %)</code><span>объём голов</span></div>
+          <div class="formula"><code>АСтела = АС − АСголов − АСхвостов</code><span>баланс фракций</span></div>
+          <div class="formula"><code>Cсмеси = (V₁·C₁ + V₂·C₂) / (V₁ + V₂)</code><span>крепость смеси</span></div>
+          <p class="note">Доля спирта в хвостах зависит от крепости, на которой вы остановили тело: чем выше стоп, тем больше уходит в хвосты (в калькуляторе — от 5 до 30 % АС).</p>
+        </section>
+
+        <section class="card">
+          <h2 class="h2">Ориентиры по сырью</h2>
+          <table class="tbl">
+            <thead>
+              <tr><th>Сырьё</th><th>Головы</th><th>АС, л/кг</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Сахарная</td><td>8–10 % АС</td><td>0,60</td></tr>
+              <tr><td>Зерновая</td><td>8–12 % АС</td><td>0,55</td></tr>
+              <tr><td>Фруктовая</td><td>10–15 % АС</td><td>0,50</td></tr>
+              <tr><td>Виноградная</td><td>10–15 % АС</td><td>0,58</td></tr>
+            </tbody>
+          </table>
+          <p class="note">Для сахарной браги ходовое правило — 50 мл голов на 1 кг сахара, это примерно 8–10 % от АС.</p>
+        </section>
+
+        <section class="card">
+          <h2 class="h2">Температуры кипения</h2>
+          <table class="tbl">
+            <thead>
+              <tr><th>Вещество</th><th>t кипения</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Ацетальдегид</td><td>20,8 °C</td></tr>
+              <tr><td>Метанол</td><td>64,7 °C</td></tr>
+              <tr><td>Этилацетат</td><td>77,1 °C</td></tr>
+              <tr><td>Этанол</td><td>78,4 °C</td></tr>
+              <tr><td>Вода</td><td>100 °C</td></tr>
+              <tr><td>Изоамиловый спирт</td><td>131 °C</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card prose">
+          <h2 class="h2">Частые ошибки</h2>
+          <ul>
+            <li>Гнать быстро — головы «размазываются» по телу, напиток пахнет.</li>
+            <li>Не разбавлять сырец — хуже разделение и выше риск возгорания.</li>
+            <li>Тянуть тело ниже 40 % в струе — сивуха и мутность.</li>
+            <li>Гнать досуха — запах, возможен выброс из куба.</li>
+            <li>Верить наклейке ареометра без поправки на температуру.</li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <h2 class="h2">Безопасность</h2>
+          <div class="warn">
+            <p>Спирт легко воспламеняется: никакого открытого огня, искр и курения рядом с аппаратом.</p>
+            <p>Гоните в проветриваемом помещении, под рукой — огнетушитель.</p>
+            <p>Куб не закрывайте наглухо, не заправляйте горячим и не выгоняйте досуха.</p>
+            <p>Только нержавейка, медь и стекло. Алюминий, пластик и эмаль со сколами не подходят.</p>
+            <p>Головы не пить. Продукт — для личного употребления, 18+.</p>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>Ориентировочные расчёты по абсолютному спирту · крепость проверяйте ареометром при 20 °C</span>
+    <button type="button" class="linklike" id="resetBtn">Сбросить данные</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Липкая строка с главным числом: только на телефоне и в Telegram -->
+<div class="sticky-bar" id="stickyBar" hidden>
+  <span class="sb-text">
+    <span class="sb-val" id="sbVal">2,40 л АС</span>
+    <span class="sb-lab" id="sbLab">напитка 40 %: 4,62 л</span>
+  </span>
+  <button type="button" class="btn-accent" id="sbBtn">Скопировать</button>
+</div>
+
+<!-- Служебная строка: показывается, только если в адресе есть ?debug -->
+<p class="diag" id="diag" hidden></p>
+
+<script src="calc.js"></script>
+<script src="app.js"></script>
+<script src="pwa.js"></script>
+</body>
+</html>
