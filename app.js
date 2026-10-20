@@ -6,18 +6,21 @@
   const $ = (id) => document.getElementById(id);
   const $$ = (selector, root) => Array.from((root || document).querySelectorAll(selector));
 
-  const STORAGE_KEY = 'fractional-distillation-calc/v1';
+  const STORAGE_KEY = 'fractional-distillation-calc/v2';
+  const LEGACY_KEY = 'fractional-distillation-calc/v1';
+  // при переезде на версию 2 эти поля берём из новых настроек, а не из старых
+  const LEGACY_MODE_KEYS = ['mode', 'stopAbv', 'diluteTo', 'headsPct'];
 
   const DEFAULTS = {
-    mode: 'still',
+    mode: 'column',
     ssVol: 8,
     ssAbv: 30,
     dilute: true,
-    diluteTo: 20,
+    diluteTo: 35,
     raw: 'sugar',
-    headsPct: 8,
+    headsPct: 3,
     headsAuto: true,
-    stopAbv: 40,
+    stopAbv: 95,
     bodyAbv: 62,
     washMode: 'vol',
     washVol: 20,
@@ -54,7 +57,21 @@
 
   function load() {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      let raw = window.localStorage.getItem(STORAGE_KEY);
+      let migrated = false;
+      if (!raw) {
+        // перенос из первой версии: цифры сохраняем, аппарат берём новый — колонну
+        const legacy = window.localStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          const old = JSON.parse(legacy);
+          LEGACY_MODE_KEYS.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(old, key)) delete old[key];
+          });
+          raw = JSON.stringify(old);
+          window.localStorage.removeItem(LEGACY_KEY);
+          migrated = true;
+        }
+      }
       if (!raw) return;
       const saved = JSON.parse(raw);
       Object.keys(DEFAULTS).forEach((key) => {
@@ -65,6 +82,8 @@
       });
       if (!Calc.RAW_TYPES[state.raw]) state.raw = DEFAULTS.raw;
       if (!Calc.MODES[state.mode]) state.mode = DEFAULTS.mode;
+      // перенесённое сразу оседает в новом ключе: иначе данные живут только в памяти
+      if (migrated) save();
     } catch (err) {
       state = Object.assign({}, DEFAULTS);
     }
@@ -392,20 +411,25 @@
     });
   }
 
-  function setMode(mode) {
-    if (!Calc.MODES[mode] || mode === state.mode) return;
-    const isColumn = mode === 'column';
-
-    state.mode = mode;
-    // подставляем рабочие значения под аппарат; ручные головы не трогаем
+  // Рабочие значения под аппарат: у колонны заряд крепче и стоп выше.
+  function applyModeDefaults() {
+    const isColumn = state.mode === 'column';
     state.stopAbv = isColumn ? 95 : 40;
     state.diluteTo = isColumn ? 35 : 20;
-    if (state.headsAuto) state.headsPct = Calc.headsDefault(mode, state.raw);
+    // ручные головы не трогаем — только автонорму
+    if (state.headsAuto) state.headsPct = Calc.headsDefault(state.mode, state.raw);
+  }
+
+  function setMode(mode) {
+    if (!Calc.MODES[mode] || mode === state.mode) return;
+
+    state.mode = mode;
+    applyModeDefaults();
 
     applyStateToInputs();
     render();
     save();
-    toasts(isColumn ? 'Колонна: тело 96,6 % об.' : 'Дистиллятор: тело 60–70 % об.');
+    toasts(mode === 'column' ? 'Колонна: тело 96,6 % об.' : 'Дистиллятор: тело 60–70 % об.');
   }
 
   function wireMode() {
@@ -565,16 +589,12 @@
 
   load();
 
-  // Ссылку можно дать сразу с нужным аппаратом: index.html?mode=column
+  // Ссылку можно дать сразу с нужным аппаратом: index.html?mode=still
   try {
     const urlMode = new URLSearchParams(window.location.search).get('mode');
     if (urlMode && Calc.MODES[urlMode]) {
       state.mode = urlMode;
-      if (urlMode === 'column') {
-        state.stopAbv = 95;
-        state.diluteTo = 35;
-      }
-      state.headsPct = Calc.headsDefault(state.mode, state.raw);
+      applyModeDefaults();
     }
   } catch (err) {
     /* старый браузер без URLSearchParams — просто открываем как есть */

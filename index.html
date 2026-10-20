@@ -77,8 +77,8 @@
             <div class="field">
               <span class="label">Аппарат</span>
               <div class="segctl" id="deviceMode" role="group" aria-label="Тип аппарата">
-                <button type="button" class="seg-btn is-active" data-mode="still">Дистиллятор</button>
-                <button type="button" class="seg-btn" data-mode="column">Колонна 96,6 %</button>
+                <button type="button" class="seg-btn" data-mode="still">Дистиллятор</button>
+                <button type="button" class="seg-btn is-active" data-mode="column">Колонна 96,6 %</button>
               </div>
               <p class="hint" id="modeHint"></p>
             </div>
@@ -86,7 +86,7 @@
             <label class="switch">
               <input type="checkbox" id="dilute" data-key="dilute" checked>
               <span class="switch-box"></span>
-              <span id="diluteLabel">Разбавить перед перегонкой до 20 % об.</span>
+              <span id="diluteLabel">Разбавить перед перегонкой до 35 % об.</span>
             </label>
             <p class="hint" id="diluteHint"></p>
           </section>
@@ -111,27 +111,27 @@
               <div class="slider-head">
                 <span class="label">Головы</span>
                 <span class="mini">
-                  <input type="number" id="headsNum" data-key="headsPct" min="0" max="25" step="0.5" value="8" inputmode="decimal" autocomplete="off" aria-label="Доля голов, процентов от абсолютного спирта">
+                  <input type="number" id="headsNum" data-key="headsPct" min="0" max="25" step="0.5" value="3" inputmode="decimal" autocomplete="off" aria-label="Доля голов, процентов от абсолютного спирта">
                   <span class="unit">% от АС</span>
                 </span>
               </div>
-              <input type="range" id="headsRange" data-key="headsPct" min="0" max="25" step="0.5" value="8" aria-label="Доля голов, процентов от абсолютного спирта">
+              <input type="range" id="headsRange" data-key="headsPct" min="0" max="25" step="0.5" value="3" aria-label="Доля голов, процентов от абсолютного спирта">
               <p class="hint" id="headsHint"></p>
             </div>
 
             <div class="slider-field">
               <div class="slider-head">
-                <span class="label" id="stopLabel">Тело — до крепости в струе</span>
+                <span class="label" id="stopLabel">Тело — до падения крепости</span>
                 <span class="mini">
-                  <input type="number" id="stopNum" data-key="stopAbv" min="20" max="96" step="0.5" value="40" inputmode="decimal" autocomplete="off" aria-label="Крепость в струе, при которой отбор тела прекращают">
+                  <input type="number" id="stopNum" data-key="stopAbv" min="80" max="96" step="0.5" value="95" inputmode="decimal" autocomplete="off" aria-label="Крепость в струе, при которой отбор тела прекращают">
                   <span class="unit">% об.</span>
                 </span>
               </div>
-              <input type="range" id="stopRange" data-key="stopAbv" min="20" max="96" step="0.5" value="40" aria-label="Крепость в струе, при которой отбор тела прекращают">
+              <input type="range" id="stopRange" data-key="stopAbv" min="80" max="96" step="0.5" value="95" aria-label="Крепость в струе, при которой отбор тела прекращают">
               <p class="hint" id="stopHint"></p>
             </div>
 
-            <div class="slider-field" id="bodyRow">
+            <div class="slider-field" id="bodyRow" hidden>
               <div class="slider-head">
                 <span class="label">Средняя крепость тела</span>
                 <span class="mini">
@@ -143,7 +143,7 @@
               <p class="hint">Нужна, чтобы пересчитать спирт в объём: тело идёт примерно от 85 % до 40 %, средняя — около 62 %.</p>
             </div>
 
-            <p class="hint fixed-note" id="bodyFixed" hidden>Крепость тела у колонны фиксирована — <b>96,6 % об.</b> Выше не подняться: этанол с водой образует неразделимый азеотроп.</p>
+            <p class="hint fixed-note" id="bodyFixed">Крепость тела у колонны фиксирована — <b>96,6 % об.</b> Выше не подняться: этанол с водой образует неразделимый азеотроп.</p>
           </section>
 
           <details class="card card-collapse" id="washCard">

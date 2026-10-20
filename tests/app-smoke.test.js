@@ -14,7 +14,9 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 
-function createDom() {
+// opts.search — то, что стоит в адресе после «?»: так проверяем и дефолт, и ?mode=still
+function createDom(opts) {
+  const search = (opts && opts.search) || '';
   const byId = new Map();
   const writes = new Map();
   const steps = [];
@@ -172,7 +174,7 @@ function createDom() {
       setItem: (k, v) => storage.set(k, String(v)),
       removeItem: (k) => storage.delete(k)
     },
-    location: { hash: '', search: '' },
+    location: { hash: '', search: search },
     history: { replaceState() {} },
     addEventListener() {},
     setTimeout: (fn) => 0,
@@ -185,8 +187,13 @@ function createDom() {
   return { window, document, writes, steps, listeners, storage, fieldElements, chips, byId, modeChips };
 }
 
-function boot() {
-  const dom = createDom();
+function boot(opts) {
+  const dom = createDom(opts);
+
+  // opts.storage — что уже лежит в localStorage до запуска приложения
+  if (opts && opts.storage) {
+    Object.keys(opts.storage).forEach((key) => dom.storage.set(key, opts.storage[key]));
+  }
 
   // calc.js выполняется отдельно: ядро не зависит от DOM, берём его результат.
   const calcSource = fs.readFileSync(path.join(root, 'calc.js'), 'utf8');
@@ -220,8 +227,34 @@ function boot() {
 
 const text = (dom, id) => dom.writes.get(id);
 
-test('app.js исполняется без ошибок и заполняет результат', () => {
+test('по умолчанию открывается колонна 96,6 %', () => {
   const dom = boot();
+
+  // аппарат выбран заранее, подсказка про ректификацию
+  const active = dom.modeChips.filter((c) => c.classList.contains('is-active'));
+  assert.equal(active.length, 1, 'активен ровно один аппарат');
+  assert.equal(active[0].dataset.mode, 'column');
+  assert.match(text(dom, 'modeHint'), /Ректификация/);
+
+  // рабочие значения под колонну: заряд 35 %, головы 3 %, стоп 95 %
+  assert.equal(dom.fieldElements.get('headsPct').value, 3);
+  assert.equal(dom.fieldElements.get('diluteTo').value, 35);
+  assert.equal(dom.fieldElements.get('stopAbv').value, 95);
+  assert.equal(dom.document.getElementById('stopRange').min, '80');
+  assert.equal(dom.document.getElementById('bodyRow').hidden, true);
+  assert.equal(dom.document.getElementById('bodyFixed').hidden, false);
+
+  // числа ректификата
+  assert.equal(text(dom, 'acValue'), '2,40');
+  assert.equal(text(dom, 'headsVol'), '75');
+  assert.equal(text(dom, 'bodyVol'), '2,36');
+  assert.equal(text(dom, 'tailsVol'), '0,05');
+  assert.equal(text(dom, 'drink40'), '5,70 л');
+  assert.equal(text(dom, 'bodySub'), '2,28 л АС · 96,6 %');
+});
+
+test('app.js исполняется без ошибок и заполняет результат', () => {
+  const dom = boot({ search: '?mode=still' });
 
   assert.equal(text(dom, 'acValue'), '2,40');
   assert.equal(text(dom, 'headsVol'), '218');
@@ -231,7 +264,7 @@ test('app.js исполняется без ошибок и заполняет р
 });
 
 test('подписи фракций согласованы с числами', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
 
   assert.equal(text(dom, 'headsSub'), '0,19 л АС · 8 %');
   assert.equal(text(dom, 'bodySub'), '1,85 л АС · 62 %');
@@ -241,14 +274,14 @@ test('подписи фракций согласованы с числами', (
 });
 
 test('полоса фракций получает проценты ширины', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   assert.equal(dom.document.getElementById('segHeads').style.width, '8.00%');
   assert.equal(dom.document.getElementById('segBody').style.width, '77.00%');
   assert.equal(dom.document.getElementById('segTails').style.width, '15.00%');
 });
 
 test('план перегонки состоит из пяти шагов', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   assert.equal(dom.steps.length, 5);
   assert.match(dom.steps[0], /влить 4,00 л воды/);
   assert.match(dom.steps[1], /218 мл/);
@@ -256,7 +289,7 @@ test('план перегонки состоит из пяти шагов', () =
 });
 
 test('вкладка разбавления считает воду и поправку', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   assert.equal(text(dom, 'dilWater'), '3,13');
   assert.equal(text(dom, 'dilTotal'), '8,13 л');
   assert.equal(text(dom, 'dilPerLiter'), '0,63 л');
@@ -266,13 +299,13 @@ test('вкладка разбавления считает воду и попр�
 });
 
 test('блок «сырец из браги» считает по объёму', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   assert.equal(text(dom, 'washAc'), '2,40 л');
   assert.equal(text(dom, 'washSs'), '8,0 л');
 });
 
 test('изменение объёма сырца пересчитывает всё', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const el = dom.fieldElements.get('ssVol');
   assert.ok(el, 'поле ssVol должно быть связано обработчиком');
   el.value = '16';
@@ -286,7 +319,7 @@ test('изменение объёма сырца пересчитывает вс
 });
 
 test('отключение разбавления убирает воду из заряда', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const el = dom.fieldElements.get('dilute');
   el.checked = false;
   dom.steps.length = 0;
@@ -297,7 +330,7 @@ test('отключение разбавления убирает воду из �
 });
 
 test('смена сырья меняет норму голов, если она не задана вручную', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const grape = dom.chips.find((c) => c.dataset.raw === 'grape');
   dom.listeners.get(grape).get('click').forEach((fn) => fn());
 
@@ -306,20 +339,50 @@ test('смена сырья меняет норму голов, если она 
   assert.equal(text(dom, 'headsSub'), '0,29 л АС · 12 %');
 });
 
+test('настройки первой версии переносятся, аппарат берётся новый', () => {
+  const dom = boot({
+    storage: {
+      'fractional-distillation-calc/v1': JSON.stringify({
+        ssVol: 12,
+        ssAbv: 40,
+        mode: 'still',
+        stopAbv: 40,
+        diluteTo: 20,
+        headsPct: 8
+      })
+    }
+  });
+
+  // цифры из старой версии на месте
+  assert.equal(dom.fieldElements.get('ssVol').value, 12);
+  assert.equal(dom.fieldElements.get('ssAbv').value, 40);
+
+  // а аппарат и его рабочие значения — новые, колонна
+  const active = dom.modeChips.filter((c) => c.classList.contains('is-active'));
+  assert.equal(active[0].dataset.mode, 'column');
+  assert.equal(dom.fieldElements.get('stopAbv').value, 95);
+  assert.equal(dom.fieldElements.get('diluteTo').value, 35);
+  assert.equal(dom.fieldElements.get('headsPct').value, 3);
+
+  // старый ключ убран, новый записан
+  assert.equal(dom.storage.get('fractional-distillation-calc/v1'), undefined);
+  assert.ok(dom.storage.get('fractional-distillation-calc/v2'));
+});
+
 test('состояние сохраняется в localStorage', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const el = dom.fieldElements.get('ssVol');
   el.value = '10';
   dom.listeners.get(el).get('input').forEach((fn) => fn());
 
-  const saved = JSON.parse(dom.storage.get('fractional-distillation-calc/v1'));
+  const saved = JSON.parse(dom.storage.get('fractional-distillation-calc/v2'));
   assert.equal(saved.ssVol, 10);
   assert.equal(saved.raw, 'sugar');
   assert.equal(saved.headsAuto, true);
 });
 
 test('переключение режима браги меняет панели', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const sugarBtn = dom.chips.find((c) => c.dataset.washmode === 'sugar');
   dom.listeners.get(sugarBtn).get('click').forEach((fn) => fn());
 
@@ -329,7 +392,7 @@ test('переключение режима браги меняет панели
 });
 
 test('липкая строка показывает главное число вкладки', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const bar = dom.document.getElementById('stickyBar');
 
   // перегонка: сколько абсолютного спирта и сколько выйдет напитка
@@ -351,7 +414,7 @@ test('липкая строка показывает главное число �
 });
 
 test('если разбавлять не нужно, липкая строка говорит об этом', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const el = dom.fieldElements.get('dilAbv');
   el.value = '30';
   dom.listeners.get(el).get('input').forEach((fn) => fn());
@@ -364,7 +427,7 @@ test('если разбавлять не нужно, липкая строка �
 });
 
 test('режим колонны считает ректификат 96,6 %', () => {
-  const dom = boot();
+  const dom = boot({ search: '?mode=still' });
   const columnBtn = dom.modeChips.find((c) => c.dataset.mode === 'column');
   dom.listeners.get(columnBtn).get('click').forEach((fn) => fn());
 
